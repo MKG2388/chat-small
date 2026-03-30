@@ -1,6 +1,6 @@
 # CODW RAG App
 
-NL2SPARQL RAG assistant for Dutch government rule specifications. Translates natural language questions into SPARQL queries against the [CODW dataset](https://api.triply.com/datasets/random/CODW/) and generates answers from the results.
+NL2SPARQL RAG assistant for Dutch government rule specifications. Translates natural language questions into SPARQL queries and generates answers from the results.
 
 ## Architecture
 
@@ -65,7 +65,7 @@ After importing, set the client secret in Keycloak to match the `OIDC_CLIENT_SEC
 | `OIDC_CLIENT_ID` | OIDC client ID | — |
 | `OIDC_CLIENT_SECRET` | OIDC client secret | — |
 | `OIDC_REDIRECT_URI` | OAuth2 redirect URI (your app's public URL) | `http://localhost:8501` |
-| `SPARQL_ENDPOINT` | SPARQL endpoint URL | `https://api.triply.com/datasets/random/CODW/services/CODW/sparql` |
+| `SPARQL_ENDPOINT` | SPARQL endpoint URL | — |
 | `DEFAULT_API_BASE_URL` | Pre-filled LLM API base URL in the sidebar | — |
 | `DEFAULT_API_MODEL` | Pre-filled model name in the sidebar | `gpt-4o-mini` |
 

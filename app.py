@@ -203,7 +203,7 @@ RIJKS_HEMELBLAUW = "#007BC7"
 RIJKS_WIT = "#FFFFFF"
 RIJKS_LICHTGRIJS = "#F3F3F3"
 
-SPARQL_ENDPOINT = os.environ.get("SPARQL_ENDPOINT", "https://api.triply.com/datasets/random/CODW/services/CODW/sparql")
+SPARQL_ENDPOINT = os.environ.get("SPARQL_ENDPOINT", "")
 
 # Schema description for the LLM to generate SPARQL queries
 SCHEMA_DESCRIPTION = """
@@ -412,7 +412,7 @@ with st.sidebar:
     st.markdown("### ℹ️ Over deze app")
     st.markdown(
         "Deze app vertaalt je vraag naar een **SPARQL query**, "
-        "voert die uit op de [CODW-dataset](https://api.triply.com/datasets/random/CODW/), "
+        "voert die uit op de CODW-dataset, "
         "en geeft een antwoord op basis van de resultaten. "
         "Als de dataset geen relevante data bevat, wordt dat eerlijk gemeld."
     )
