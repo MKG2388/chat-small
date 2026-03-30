@@ -1,0 +1,44 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - DO_NOT_TRACK=1
+      - OIDC_AUTHORITY=http://localhost:8080/realms/codw
+      - OIDC_INTERNAL_AUTHORITY=http://keycloak:8080/realms/codw
+      - OIDC_CLIENT_ID=codw-app
+      - OIDC_CLIENT_SECRET=change-me-in-production
+      - OIDC_REDIRECT_URI=http://localhost:8501
+      - SPARQL_ENDPOINT=${SPARQL_ENDPOINT:-https://api.triply.com/datasets/random/CODW/services/CODW/sparql}
+      - DEFAULT_API_BASE_URL=${DEFAULT_API_BASE_URL:-}
+      - DEFAULT_API_MODEL=${DEFAULT_API_MODEL:-gpt-4o-mini}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    networks:
+      - codw-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HEALTH_ENABLED=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e \"GET /health/ready HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && cat <&3 | grep -q UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks:
+      - codw-net
+
+networks:
+  codw-net:

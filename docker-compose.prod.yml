@@ -1,0 +1,35 @@
+services:
+  app:
+    build: https://github.com/MKG2388/chat-small.git#main
+    environment:
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - DO_NOT_TRACK=1
+      - OIDC_AUTHORITY=https://keycloak.example.com/realms/codw
+      - OIDC_INTERNAL_AUTHORITY=http://keycloak:8080/realms/codw
+      - OIDC_CLIENT_ID=codw-app
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?Set OIDC_CLIENT_SECRET in .env}
+      - OIDC_REDIRECT_URI=https://codw.example.com
+      - SPARQL_ENDPOINT=${SPARQL_ENDPOINT:-https://api.triply.com/datasets/random/CODW/services/CODW/sparql}
+      - DEFAULT_API_BASE_URL=${DEFAULT_API_BASE_URL:-}
+      - DEFAULT_API_MODEL=${DEFAULT_API_MODEL:-gpt-4o-mini}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`codw.example.com`)"
+      - "traefik.http.routers.app.entrypoints=websecure"
+      - "traefik.http.routers.app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.app.loadbalancer.server.port=8501"
+      # Security headers
+      - "traefik.http.middlewares.app-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.app-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.app-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.app-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.app-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.app-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.app-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.routers.app.middlewares=app-headers"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true
