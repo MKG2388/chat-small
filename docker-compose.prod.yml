@@ -3,12 +3,9 @@ services:
     build: https://github.com/MKG2388/chat-small.git#main
     environment:
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - STREAMLIT_SERVER_ENABLE_CORS=false
       - DO_NOT_TRACK=1
-      - OIDC_AUTHORITY=https://keycloak.example.com/realms/codw
-      - OIDC_INTERNAL_AUTHORITY=http://keycloak:8080/realms/codw
-      - OIDC_CLIENT_ID=codw-app
-      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?Set OIDC_CLIENT_SECRET in .env}
-      - OIDC_REDIRECT_URI=https://codw.example.com
       - SPARQL_ENDPOINT=${SPARQL_ENDPOINT:-https://api.triply.com/datasets/random/CODW/services/CODW/sparql}
       - DEFAULT_API_BASE_URL=${DEFAULT_API_BASE_URL:-}
       - DEFAULT_API_MODEL=${DEFAULT_API_MODEL:-gpt-4o-mini}

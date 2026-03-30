@@ -6,11 +6,11 @@ services:
     environment:
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
       - DO_NOT_TRACK=1
-      - OIDC_AUTHORITY=http://localhost:8080/realms/codw
-      - OIDC_INTERNAL_AUTHORITY=http://keycloak:8080/realms/codw
-      - OIDC_CLIENT_ID=codw-app
-      - OIDC_CLIENT_SECRET=change-me-in-production
-      - OIDC_REDIRECT_URI=http://localhost:8501
+      - OIDC_AUTHORITY=${OIDC_AUTHORITY:-}
+      - OIDC_INTERNAL_AUTHORITY=${OIDC_INTERNAL_AUTHORITY:-http://keycloak:8080/realms/codw}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-codw-app}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-change-me-in-production}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-http://localhost:8501}
       - SPARQL_ENDPOINT=${SPARQL_ENDPOINT:-https://api.triply.com/datasets/random/CODW/services/CODW/sparql}
       - DEFAULT_API_BASE_URL=${DEFAULT_API_BASE_URL:-}
       - DEFAULT_API_MODEL=${DEFAULT_API_MODEL:-gpt-4o-mini}

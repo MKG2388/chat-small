@@ -167,20 +167,32 @@ def require_auth():
         return True
 
     # Handle callback from Keycloak
-    if "code" in st.query_params and "user" not in st.session_state:
-        if oidc_handle_callback():
-            st.rerun()
+    if "code" in st.query_params:
+        if "user" not in st.session_state:
+            if oidc_handle_callback():
+                st.rerun()
+            else:
+                # Callback failed — clear params and let user retry
+                st.query_params.clear()
+                st.rerun()
         else:
-            st.stop()
+            # Already logged in but stale code in URL — clean it up
+            st.query_params.clear()
+            st.rerun()
 
     # Expire session if access token has expired
     if "user" in st.session_state and _is_token_expired():
         for key in ["user", "oidc_token", "oidc_state", "oidc_nonce", "oidc_code_verifier"]:
             st.session_state.pop(key, None)
 
-    # Not authenticated — redirect to Keycloak immediately
+    # Not authenticated — show login button
+    # (A button click is needed so Streamlit's session state is established
+    # before we redirect; auto-redirect loses state on the return trip.)
     if "user" not in st.session_state:
-        oidc_login()
+        st.markdown("### Inloggen vereist")
+        if st.button("Inloggen met Keycloak"):
+            oidc_login()
+        st.stop()
 
     return True
 
