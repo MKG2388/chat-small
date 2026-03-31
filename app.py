@@ -287,9 +287,9 @@ st.set_page_config(
 
 st.markdown(f"""
 <style>
-    /* Hide the default Streamlit header */
+    /* Make the default Streamlit header transparent so the sidebar toggle remains visible */
     header[data-testid="stHeader"] {{
-        display: none !important;
+        background: transparent !important;
     }}
     /* Remove default top padding to let the banner sit at the top */
     .stMainBlockContainer {{
