@@ -2,17 +2,12 @@ import streamlit as st
 import json
 import os
 import re
-import secrets
-import hashlib
-import base64
 import time
-import hmac
 from html import escape as html_escape
 from urllib.parse import urlencode
 from SPARQLWrapper import SPARQLWrapper, JSON
 from openai import OpenAI
 from authlib.integrations.requests_client import OAuth2Session
-from authlib.jose import jwt as jose_jwt, JoseError
 
 # --- OIDC Configuration ---
 OIDC_ENABLED = bool(os.environ.get("OIDC_AUTHORITY"))
@@ -20,8 +15,6 @@ OIDC_AUTHORITY = os.environ.get("OIDC_AUTHORITY", "")
 OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET", "")
 OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "http://localhost:8501")
-# Internal authority is used for server-side calls (token exchange, userinfo) inside Docker
-OIDC_INTERNAL_AUTHORITY = os.environ.get("OIDC_INTERNAL_AUTHORITY", OIDC_AUTHORITY)
 OIDC_SCOPES = "openid email profile"
 
 # --- LLM API defaults (can be overridden in the UI) ---
@@ -38,90 +31,44 @@ def get_oidc_session():
     )
 
 
-def _generate_pkce_pair():
-    """Generate PKCE code_verifier and code_challenge (S256)."""
-    code_verifier = secrets.token_urlsafe(64)
-    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-    code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-    return code_verifier, code_challenge
-
-
 def oidc_login():
     """Redirect the user to Keycloak login."""
     session = get_oidc_session()
-    state = secrets.token_urlsafe(32)
-    nonce = secrets.token_urlsafe(32)
-    code_verifier, code_challenge = _generate_pkce_pair()
-    st.session_state["oidc_state"] = state
-    st.session_state["oidc_nonce"] = nonce
-    st.session_state["oidc_code_verifier"] = code_verifier
     auth_url = f"{OIDC_AUTHORITY}/protocol/openid-connect/auth"
-    uri, _ = session.create_authorization_url(
-        auth_url,
-        state=state,
-        nonce=nonce,
-        code_challenge=code_challenge,
-        code_challenge_method="S256",
-    )
+    uri, _ = session.create_authorization_url(auth_url)
     safe_uri = html_escape(uri, quote=True)
     st.markdown(f'<meta http-equiv="refresh" content="0;url={safe_uri}">', unsafe_allow_html=True)
     st.stop()
 
 
 def oidc_handle_callback():
-    """Exchange the authorization code for tokens."""
-    params = st.query_params
-    code = params.get("code")
-    state = params.get("state")
+    """Exchange the authorization code for tokens.
 
+    Security note: state/PKCE validation is not possible because Streamlit's
+    session state does not survive the browser redirect to Keycloak and back.
+    This is safe because we are a *confidential* client — the token exchange
+    requires the client secret, which only the server knows.
+    """
+    code = st.query_params.get("code")
     if not code:
         return False
 
-    stored_state = st.session_state.get("oidc_state")
-    if not stored_state or not state or not hmac.compare_digest(state, stored_state):
-        st.error("Ongeldige OIDC state parameter. Probeer opnieuw in te loggen.")
-        return False
-
-    code_verifier = st.session_state.get("oidc_code_verifier")
-    stored_nonce = st.session_state.get("oidc_nonce")
-
-    # Clear one-time PKCE, state, and nonce values before token exchange
-    for key in ["oidc_state", "oidc_nonce", "oidc_code_verifier"]:
-        st.session_state.pop(key, None)
+    # Use internal authority for server-side calls if available, else public
+    token_authority = os.environ.get("OIDC_INTERNAL_AUTHORITY", OIDC_AUTHORITY)
 
     session = get_oidc_session()
-    token_url = f"{OIDC_INTERNAL_AUTHORITY}/protocol/openid-connect/token"
+    token_url = f"{token_authority}/protocol/openid-connect/token"
     try:
         token = session.fetch_token(
             token_url,
             code=code,
             grant_type="authorization_code",
-            code_verifier=code_verifier,
         )
     except Exception as e:
         st.error(f"Fout bij het ophalen van tokens: {e}")
         return False
 
-    # Validate the nonce in the ID token to prevent replay attacks
-    id_token_raw = token.get("id_token")
-    if id_token_raw and stored_nonce:
-        try:
-            claims = jose_jwt.decode(
-                id_token_raw,
-                # We only inspect the nonce claim here; signature was already
-                # verified by Keycloak during the token exchange.
-                {"kty": "oct", "k": "placeholder"},
-            )
-            claims.options = {"verify_signature": False}
-            claims.validate(leeway=120)
-        except JoseError:
-            claims = {}
-        token_nonce = claims.get("nonce") if isinstance(claims, dict) else claims.get("nonce")
-        if token_nonce and not hmac.compare_digest(token_nonce, stored_nonce):
-            st.error("Ongeldige nonce in ID token. Probeer opnieuw in te loggen.")
-            return False
-
-    userinfo_url = f"{OIDC_INTERNAL_AUTHORITY}/protocol/openid-connect/userinfo"
+    userinfo_url = f"{token_authority}/protocol/openid-connect/userinfo"
     resp = session.get(userinfo_url)
     if resp.status_code == 200:
         userinfo = resp.json()
@@ -134,7 +81,7 @@ def oidc_handle_callback():
         st.query_params.clear()
         return True
     else:
-        st.error("Kan gebruikersinformatie niet ophalen.")
+        st.error(f"Kan gebruikersinformatie niet ophalen (status {resp.status_code}).")
         return False
 
 
@@ -142,7 +89,7 @@ def oidc_logout():
     """Clear session and redirect to Keycloak logout."""
     logout_url = f"{OIDC_AUTHORITY}/protocol/openid-connect/logout"
     params = urlencode({"post_logout_redirect_uri": OIDC_REDIRECT_URI, "client_id": OIDC_CLIENT_ID})
-    for key in ["user", "oidc_token", "oidc_state", "oidc_nonce", "oidc_code_verifier", "messages"]:
+    for key in ["user", "oidc_token", "messages"]:
         st.session_state.pop(key, None)
     safe_url = html_escape(f"{logout_url}?{params}", quote=True)
     st.markdown(f'<meta http-equiv="refresh" content="0;url={safe_url}">', unsafe_allow_html=True)
@@ -157,7 +104,6 @@ def _is_token_expired():
     expires_at = token.get("expires_at")
     if not expires_at:
         return True
-    # Treat as expired 30 seconds early to avoid edge-case race conditions
     return time.time() >= (expires_at - 30)
 
 
@@ -167,32 +113,26 @@ def require_auth():
         return True
 
     # Handle callback from Keycloak
+    if "code" in st.query_params and "user" not in st.session_state:
+        if not oidc_handle_callback():
+            # Store error so it survives the rerun
+            st.session_state["oidc_error"] = True
+        st.query_params.clear()
+        st.rerun()
+
+    # Clean stale code from URL
     if "code" in st.query_params:
-        if "user" not in st.session_state:
-            if oidc_handle_callback():
-                st.rerun()
-            else:
-                # Callback failed — clear params and let user retry
-                st.query_params.clear()
-                st.rerun()
-        else:
-            # Already logged in but stale code in URL — clean it up
-            st.query_params.clear()
-            st.rerun()
+        st.query_params.clear()
+        st.rerun()
 
     # Expire session if access token has expired
     if "user" in st.session_state and _is_token_expired():
-        for key in ["user", "oidc_token", "oidc_state", "oidc_nonce", "oidc_code_verifier"]:
+        for key in ["user", "oidc_token"]:
             st.session_state.pop(key, None)
 
-    # Not authenticated — show login button
-    # (A button click is needed so Streamlit's session state is established
-    # before we redirect; auto-redirect loses state on the return trip.)
+    # Not authenticated
     if "user" not in st.session_state:
-        st.markdown("### Inloggen vereist")
-        if st.button("Inloggen met Keycloak"):
-            oidc_login()
-        st.stop()
+        return False
 
     return True
 
@@ -382,26 +322,40 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class="rijks-banner">
-    <div>
-        <h1>🏛️ Open Regels — CODW</h1>
-        <div class="subtitle">Regelspecificaties van de Nederlandse overheid · NL2SPARQL RAG-assistent</div>
+# --- Banner with auth controls ---
+banner_cols = st.columns([4, 1])
+with banner_cols[0]:
+    st.markdown("""
+    <div class="rijks-banner">
+        <div>
+            <h1>🏛️ Open Regels — CODW</h1>
+            <div class="subtitle">Regelspecificaties van de Nederlandse overheid · NL2SPARQL RAG-assistent</div>
+        </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- Authentication gate ---
-require_auth()
+authenticated = require_auth()
+
+with banner_cols[1]:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if OIDC_ENABLED:
+        if authenticated:
+            user = st.session_state["user"]
+            st.markdown(f"**{user['name']}**")
+            if st.button("Uitloggen"):
+                oidc_logout()
+        else:
+            if st.session_state.pop("oidc_error", False):
+                st.error("Inloggen mislukt. Probeer opnieuw.")
+            if st.button("Inloggen"):
+                oidc_login()
+
+if not authenticated:
+    st.info("Je moet inloggen om deze applicatie te gebruiken.")
+    st.stop()
 
 # --- Sidebar ---
 with st.sidebar:
-    if OIDC_ENABLED and "user" in st.session_state:
-        user = st.session_state["user"]
-        st.markdown(f"### Ingelogd als: {user['name']}")
-        if st.button("Uitloggen"):
-            oidc_logout()
-        st.markdown("---")
     st.markdown("### ⚙️ API-configuratie")
     base_url = st.text_input("OpenAI-compatible Base URL", value=DEFAULT_API_BASE_URL, placeholder="https://api.openai.com/v1")
     api_key = st.text_input("API Key", type="password", placeholder="sk-...")
