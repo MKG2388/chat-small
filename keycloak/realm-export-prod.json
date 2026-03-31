@@ -41,8 +41,7 @@
       "consentRequired": false,
       "fullScopeAllowed": true,
       "attributes": {
-        "post.logout.redirect.uris": "https://codw.example.com/*",
-        "pkce.code.challenge.method": "S256"
+        "post.logout.redirect.uris": "https://codw.example.com/*"
       },
       "protocolMappers": [
         {
