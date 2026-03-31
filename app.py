@@ -252,8 +252,13 @@ st.set_page_config(
 
 st.markdown(f"""
 <style>
+    /* Hide the default Streamlit header */
     header[data-testid="stHeader"] {{
-        background-color: {RIJKS_DONKERBLAUW};
+        display: none !important;
+    }}
+    /* Remove default top padding to let the banner sit at the top */
+    .stMainBlockContainer {{
+        padding-top: 0 !important;
     }}
     section[data-testid="stSidebar"] {{
         background-color: {RIJKS_DONKERBLAUW};
@@ -282,24 +287,50 @@ st.markdown(f"""
     .stChatMessage {{
         border-left: 4px solid {RIJKS_HEMELBLAUW};
     }}
-    .rijks-banner {{
+    /* Single navbar */
+    .rijks-navbar {{
         background-color: {RIJKS_DONKERBLAUW};
         color: {RIJKS_WIT};
         padding: 0.8rem 1.5rem;
         margin: -1rem -1rem 1.5rem -1rem;
         display: flex;
         align-items: center;
-        gap: 1rem;
+        justify-content: space-between;
     }}
-    .rijks-banner h1 {{
+    .rijks-navbar h1 {{
         color: {RIJKS_WIT};
         font-size: 1.4rem;
         margin: 0;
         font-family: 'RO Sans', 'Rijksoverheid Sans', sans-serif;
     }}
-    .rijks-banner .subtitle {{
+    .rijks-navbar .subtitle {{
         color: #B2D4EC;
         font-size: 0.85rem;
+    }}
+    .rijks-navbar .navbar-auth {{
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        white-space: nowrap;
+    }}
+    .rijks-navbar .navbar-user {{
+        color: {RIJKS_WIT};
+        font-size: 0.9rem;
+        font-weight: 600;
+    }}
+    .rijks-navbar .navbar-btn {{
+        background-color: {RIJKS_HEMELBLAUW};
+        color: {RIJKS_WIT};
+        border: none;
+        border-radius: 4px;
+        padding: 0.4rem 1rem;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: 600;
+    }}
+    .rijks-navbar .navbar-btn:hover {{
+        background-color: #005A9C;
     }}
     .source-box {{
         background-color: {RIJKS_LICHTGRIJS};
@@ -322,33 +353,46 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Banner with auth controls ---
-banner_cols = st.columns([4, 1])
-with banner_cols[0]:
-    st.markdown("""
-    <div class="rijks-banner">
-        <div>
-            <h1>🏛️ Open Regels — CODW</h1>
-            <div class="subtitle">Regelspecificaties van de Nederlandse overheid · NL2SPARQL RAG-assistent</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
 authenticated = require_auth()
 
-with banner_cols[1]:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if OIDC_ENABLED:
-        if authenticated:
-            user = st.session_state["user"]
-            st.markdown(f"**{user['name']}**")
-            if st.button("Uitloggen"):
+# --- Single navbar with integrated auth ---
+if OIDC_ENABLED and authenticated:
+    user = st.session_state["user"]
+    auth_html = (
+        f'<div class="navbar-auth">'
+        f'<span class="navbar-user">{html_escape(user["name"])}</span>'
+        f'</div>'
+    )
+elif OIDC_ENABLED:
+    auth_html = ''
+else:
+    auth_html = ''
+
+st.markdown(f"""
+<div class="rijks-navbar">
+    <div>
+        <h1>Open Regels — CODW</h1>
+        <div class="subtitle">Regelspecificaties van de Nederlandse overheid</div>
+    </div>
+    {auth_html}
+</div>
+""", unsafe_allow_html=True)
+
+# Auth buttons (Streamlit buttons can't live inside raw HTML)
+if OIDC_ENABLED:
+    if authenticated:
+        # Place logout button right-aligned below the navbar
+        logout_col = st.columns([6, 1])
+        with logout_col[1]:
+            if st.button("Uitloggen", key="navbar_logout"):
                 oidc_logout()
-        else:
-            if st.session_state.pop("oidc_error", False):
-                detail = st.session_state.pop("oidc_error_detail", "")
-                st.error(f"Inloggen mislukt. {detail}" if detail else "Inloggen mislukt. Probeer opnieuw.")
-            if st.button("Inloggen"):
+    else:
+        if st.session_state.pop("oidc_error", False):
+            detail = st.session_state.pop("oidc_error_detail", "")
+            st.error(f"Inloggen mislukt. {detail}" if detail else "Inloggen mislukt. Probeer opnieuw.")
+        login_col = st.columns([6, 1])
+        with login_col[1]:
+            if st.button("Inloggen", key="navbar_login"):
                 oidc_login()
 
 if not authenticated:
