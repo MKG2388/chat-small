@@ -17,7 +17,7 @@
   "failureFactor": 5,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 1800,
   "accessCodeLifespan": 60,
   "accessCodeLifespanLogin": 1800,
   "actionTokenGeneratedByUserLifespan": 300,

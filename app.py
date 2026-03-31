@@ -107,6 +107,28 @@ def _is_token_expired():
     return time.time() >= (expires_at - 30)
 
 
+def _refresh_access_token():
+    """Use the refresh token to get a new access token. Returns True on success."""
+    token = st.session_state.get("oidc_token")
+    if not token or "refresh_token" not in token:
+        return False
+
+    token_authority = os.environ.get("OIDC_INTERNAL_AUTHORITY", OIDC_AUTHORITY)
+    token_url = f"{token_authority}/protocol/openid-connect/token"
+
+    session = get_oidc_session()
+    try:
+        new_token = session.fetch_token(
+            token_url,
+            grant_type="refresh_token",
+            refresh_token=token["refresh_token"],
+        )
+        st.session_state["oidc_token"] = new_token
+        return True
+    except Exception:
+        return False
+
+
 def require_auth():
     """Enforce OIDC authentication. Returns True if authenticated."""
     if not OIDC_ENABLED:
@@ -125,10 +147,11 @@ def require_auth():
         st.query_params.clear()
         st.rerun()
 
-    # Expire session if access token has expired
+    # Auto-refresh expired access tokens
     if "user" in st.session_state and _is_token_expired():
-        for key in ["user", "oidc_token"]:
-            st.session_state.pop(key, None)
+        if not _refresh_access_token():
+            for key in ["user", "oidc_token"]:
+                st.session_state.pop(key, None)
 
     # Not authenticated
     if "user" not in st.session_state:
