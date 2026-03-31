@@ -31,12 +31,24 @@ def get_oidc_session():
     )
 
 
-def oidc_login():
-    """Redirect the user to Keycloak login."""
+def _get_login_url():
+    """Build the Keycloak authorization URL."""
     session = get_oidc_session()
     auth_url = f"{OIDC_AUTHORITY}/protocol/openid-connect/auth"
     uri, _ = session.create_authorization_url(auth_url)
-    safe_uri = html_escape(uri, quote=True)
+    return uri
+
+
+def _get_logout_url():
+    """Build the Keycloak logout URL."""
+    logout_url = f"{OIDC_AUTHORITY}/protocol/openid-connect/logout"
+    params = urlencode({"post_logout_redirect_uri": OIDC_REDIRECT_URI, "client_id": OIDC_CLIENT_ID})
+    return f"{logout_url}?{params}"
+
+
+def oidc_login():
+    """Redirect the user to Keycloak login."""
+    safe_uri = html_escape(_get_login_url(), quote=True)
     st.markdown(f'<meta http-equiv="refresh" content="0;url={safe_uri}">', unsafe_allow_html=True)
     st.stop()
 
@@ -381,13 +393,20 @@ authenticated = require_auth()
 # --- Single navbar with integrated auth ---
 if OIDC_ENABLED and authenticated:
     user = st.session_state["user"]
+    logout_url = html_escape(_get_logout_url(), quote=True)
     auth_html = (
         f'<div class="navbar-auth">'
         f'<span class="navbar-user">{html_escape(user["name"])}</span>'
+        f'<a class="navbar-btn" href="{logout_url}">Uitloggen</a>'
         f'</div>'
     )
 elif OIDC_ENABLED:
-    auth_html = ''
+    login_url = html_escape(_get_login_url(), quote=True)
+    auth_html = (
+        f'<div class="navbar-auth">'
+        f'<a class="navbar-btn" href="{login_url}">Inloggen</a>'
+        f'</div>'
+    )
 else:
     auth_html = ''
 
@@ -401,24 +420,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Auth buttons (Streamlit buttons can't live inside raw HTML)
-if OIDC_ENABLED:
-    if authenticated:
-        # Place logout button right-aligned below the navbar
-        logout_col = st.columns([6, 1])
-        with logout_col[1]:
-            if st.button("Uitloggen", key="navbar_logout"):
-                oidc_logout()
-    else:
-        if st.session_state.pop("oidc_error", False):
-            detail = st.session_state.pop("oidc_error_detail", "")
-            st.error(f"Inloggen mislukt. {detail}" if detail else "Inloggen mislukt. Probeer opnieuw.")
-        login_col = st.columns([6, 1])
-        with login_col[1]:
-            if st.button("Inloggen", key="navbar_login"):
-                oidc_login()
-
-if not authenticated:
+if OIDC_ENABLED and not authenticated:
+    if st.session_state.pop("oidc_error", False):
+        detail = st.session_state.pop("oidc_error_detail", "")
+        st.error(f"Inloggen mislukt. {detail}" if detail else "Inloggen mislukt. Probeer opnieuw.")
     st.info("Je moet inloggen om deze applicatie te gebruiken.")
     st.stop()
 
