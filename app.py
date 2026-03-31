@@ -65,7 +65,7 @@ def oidc_handle_callback():
             grant_type="authorization_code",
         )
     except Exception as e:
-        st.error(f"Fout bij het ophalen van tokens: {e}")
+        st.session_state["oidc_error_detail"] = f"Token exchange failed: {e}"
         return False
 
     userinfo_url = f"{token_authority}/protocol/openid-connect/userinfo"
@@ -81,7 +81,7 @@ def oidc_handle_callback():
         st.query_params.clear()
         return True
     else:
-        st.error(f"Kan gebruikersinformatie niet ophalen (status {resp.status_code}).")
+        st.session_state["oidc_error_detail"] = f"Userinfo failed (status {resp.status_code}): {resp.text}"
         return False
 
 
@@ -346,7 +346,8 @@ with banner_cols[1]:
                 oidc_logout()
         else:
             if st.session_state.pop("oidc_error", False):
-                st.error("Inloggen mislukt. Probeer opnieuw.")
+                detail = st.session_state.pop("oidc_error_detail", "")
+                st.error(f"Inloggen mislukt. {detail}" if detail else "Inloggen mislukt. Probeer opnieuw.")
             if st.button("Inloggen"):
                 oidc_login()
 
