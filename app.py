@@ -185,47 +185,90 @@ SCHEMA_DESCRIPTION = """
 De CODW SPARQL endpoint bevat gevalideerde regelspecificaties van de Nederlandse overheid.
 
 === PREFIXES ===
-PREFIX cpsv: <http://purl.org/vocab/cpsv#>
-PREFIX dct:  <http://purl.org/dc/terms/>
-PREFIX m8g:  <http://data.europa.eu/m8g/>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX eli:  <http://data.europa.eu/eli/ontology#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX cpsv:  <http://purl.org/vocab/cpsv#>
+PREFIX dct:   <http://purl.org/dc/terms/>
+PREFIX m8g:   <http://data.europa.eu/m8g/>
+PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
+PREFIX eli:   <http://data.europa.eu/eli/ontology#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dcat:  <http://www.w3.org/ns/dcat#>
 PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
 
-=== KLASSEN (rdf:type) ===
-- cpsv:PublicService — publieke diensten (13 stuks)
-- cpsv:Rule — regels die bij een dienst horen
-- cpsv:Input — invoergegevens voor een dienst
-- cpsv:Output — resultaat/output van een dienst
-- m8g:PublicOrganisation — overheidsorganisaties
-- eli:LegalResource — wettelijke bronnen
-- m8g:Cost — kosten
-- skos:Concept / skos:ConceptScheme — begrippen
+=== DATAMODEL OVERZICHT ===
 
-=== PROPERTIES VAN cpsv:PublicService ===
-- dct:title — titel (LET OP: kan typos bevatten!)
-- dct:description — beschrijving (vaak uitgebreider en betrouwbaarder dan de titel)
-- dct:identifier — identifier string (bijv. "studiefinanciering", "zorgtoeslag-lvnsgb")
-- dct:language — taal
-- dcat:keyword — zoekwoorden (bijv. "student", "studiefinanciering", "lening", "beurs")
-- m8g:hasCompetentAuthority — koppelt aan organisatie-URI
-- m8g:hasLegalResource — koppelt aan wettelijke bron URI
-- m8g:sector — sector
-- m8g:thematicArea — themagebied URI
-- m8g:hasCost — kosten
-- cpsv:produces — koppelt aan Output
-- cprmv:hasDecisionModel — koppelt aan beslismodel
+De data is hiërarchisch opgebouwd:
+  PublicService (dienst) → cpsv:Rule (regels) → cprmv:extends (sub-regels)
 
-=== OVERIGE PROPERTIES ===
-- skos:prefLabel — naam/label van organisatie of concept
-- cpsv:follows — koppelt PublicService aan Rule
-- cpsv:hasInput — koppelt PublicService aan Input
-- eli:implements — koppelt Rule aan LegalResource
+Voorbeeld: studiefinanciering
+  Service: "studiefinanciering"
+    └─ Rule B01.01 "Besluit aanvraag" (top-level, samenvattend)
+        ├─ Rule B02.01 "Aanspraak" (sub-regel)
+        │   ├─ Rule B02.02 "Leeftijd" (specifiek, bevat beslistabel)
+        │   ├─ Rule B02.03 "Nationaliteitsvoorwaarden"
+        │   └─ Rule B02.04 "Correcte opleiding"
+        ├─ Rule B03.01 "Totaalbedrag"
+        │   ├─ Rule B03.02 "Basisbeurs" (bevat bedragen per situatie)
+        │   └─ Rule B03.03 "Aanvullende beurs"
+        │       └─ Rule B03.03.07 "Rekeninkomen van een ouder" (formule)
+        └─ Rule B04.01 "Maanden studiefinanciering"
 
-=== ORGANISATIES IN DE DATASET (skos:prefLabel waarden) ===
+BELANGRIJK: Top-level regels (bijv. B01.01) zijn SAMENVATTEND — ze noemen alle sub-concepten
+in hun beschrijving. De SPECIFIEKE regellogica (beslisbomen, formules, bedragen) zit in de
+DIEPERE sub-regels. Zoek dus altijd op regel-niveau, niet op service-niveau.
+
+=== KLASSEN ===
+
+1. cpsv:PublicService — publieke diensten (13 stuks)
+   Properties:
+   - dct:title, dct:description, dct:identifier
+   - dcat:keyword — zoekwoorden
+   - m8g:hasCompetentAuthority → m8g:PublicOrganisation
+   - m8g:hasLegalResource → eli:LegalResource
+   - cprmv:hasDecisionModel → cprmv:DecisionModel
+
+2. cpsv:Rule — regels die bij een dienst horen (~298 stuks, KERN VAN DE DATA)
+   Properties:
+   - dct:title — titel van de regel (bijv. "Basisbeurs", "Leeftijd")
+   - dct:description — BEVAT DE WERKELIJKE REGELLOGICA: beslisbomen, formules, voorwaarden, bedragen
+   - dct:identifier — code (bijv. "B03.02", "B02.02")
+   - cpsv:implements → PublicService URI (koppelt regel aan dienst)
+   - cprmv:extends → cpsv:Rule URI (koppelt sub-regel aan parent-regel)
+   - cprmv:confidenceLevel — "high" of "medium"
+   - cprmv:validFrom — ingangsdatum
+
+   Sub-types:
+   a) cprmv:TemporalRule — business rules met dct:description (beslislogica in tekst)
+   b) cprmv:DecisionRule — DMN decision table rijen, met:
+      - cprmv:decisionTable — tabel-ID
+      - cprmv:ruleType — "decision-rule"
+      - cprmv:rulesetType — "decision-table"
+
+3. cprmv:Rule — regels afgeleid uit wettekst, met:
+   - cprmv:situatie — de situatiebeschrijving uit de wet
+   - cprmv:norm — de normwaarde (bijv. "2.200", "1.001,07")
+   - cprmv:definition — volledige wettekstpassage
+   - cprmv:implements → eli:LegalResource
+
+4. m8g:PublicOrganisation — overheidsorganisaties
+   - skos:prefLabel — naam (bijv. "Dienst Uitvoering Onderwijs")
+
+5. cpsv:Input / cpsv:Output — invoer/uitvoer van DMN-modellen
+   - dct:identifier, dct:title, dct:type
+   - schema:value — standaardwaarde
+   - cpsv:isRequiredBy / cpsv:produces → DecisionModel URI
+
+6. eli:LegalResource — wettelijke bronnen
+7. skos:Concept / skos:ConceptScheme — begrippen/vocabulaires
+
+=== RELATIES TUSSEN REGELS ===
+
+- cpsv:implements — regel → dienst (elke regel wijst naar zijn dienst)
+- cprmv:extends — sub-regel → parent-regel (hiërarchie)
+  Een regel ZONDER cprmv:extends is een top-level regel.
+  Een regel die NIET door andere regels ge-extend wordt is een leaf-regel (meest specifiek).
+
+=== ORGANISATIES ===
 - Dienst Uitvoering Onderwijs — studiefinanciering
 - Rijksdienst voor Ondernemend Nederland — subsidies
 - Sociale Verzekeringsbank — AOW, kinderbijslag
@@ -236,17 +279,10 @@ PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
 - Onderwijs, Cultuur en Wetenschap — bekostiging scholen
 - Sociale Zaken en Werkgelegenheid — normenbrief
 
-=== PUBLIEKE DIENSTEN (dct:identifier waarden) ===
-- studiefinanciering (DUO)
-- zorgtoeslag-lvnsgb (Toeslagen)
-- ww-uitkering (UWV)
-- aow-leeftijd (SVB)
-- aow-leeftijd-uwv (UWV)
-- isde-subsidie-dakisolatie (RVO)
-- heusdenpaskindpakket (Gemeente Heusden)
-- normbedragen (SZW)
-- basisbekosting-vo (OCW)
-- tree-felling / replacement-tree / rip-assignment / hr-onboarding (Provincie Flevoland)
+=== PUBLIEKE DIENSTEN (dct:identifier) ===
+studiefinanciering, zorgtoeslag-lvnsgb, ww-uitkering, aow-leeftijd, aow-leeftijd-uwv,
+isde-subsidie-dakisolatie, heusdenpaskindpakket, normbedragen, basisbekosting-vo,
+tree-felling, replacement-tree, rip-assignment, hr-onboarding
 """
 
 NL2SPARQL_SYSTEM = f"""Je bent een SPARQL-query generator voor de CODW-dataset (Nederlandse overheidsregelspecificaties).
@@ -255,27 +291,102 @@ Je taak: genereer een SPARQL SELECT query die de juiste data ophaalt voor de geb
 
 {SCHEMA_DESCRIPTION}
 
+=== QUERY STRATEGIE ===
+
+STAP 1: Bepaal of de vraag gaat over een DIENST (overzicht) of een SPECIFIEKE REGEL (detail).
+- "Welke diensten zijn er?" → query op cpsv:PublicService
+- "Wat zijn de regels voor studiefinanciering?" → query op cpsv:Rule met cpsv:implements filter
+- "Hoe wordt het rekeninkomen berekend?" → query op cpsv:Rule, zoek in dct:description
+- "Wat is de basisbeurs voor uitwonende HBO studenten?" → query op specifieke cpsv:Rule
+
+STAP 2: Zoek op het JUISTE NIVEAU.
+- Voor specifieke vragen: zoek in dct:description en dct:title van cpsv:Rule
+- Prefereer leaf-regels (regels die NIET door anderen ge-extend worden) boven top-level regels
+- Haal ook de parent-keten op via cprmv:extends voor context
+
 REGELS:
 1. Genereer ALLEEN een SPARQL query, geen uitleg.
 2. Wrap de query in ```sparql ... ``` codeblok.
 3. Gebruik altijd de juiste prefixes.
 4. Als de vraag NIET beantwoord kan worden met deze dataset, antwoord dan EXACT met: NO_DATA
-5. De dataset bevat ALLEEN regelspecificaties van Nederlandse overheidsdiensten. Vragen over andere onderwerpen → NO_DATA.
-6. CRUCIAAL VOOR ZOEKEN: Titels in de dataset kunnen typos bevatten! Zoek daarom ALTIJD breed:
-   - Zoek op MEERDERE velden tegelijk: dct:title, dct:description, dct:identifier, EN dcat:keyword
-   - Gebruik korte zoektermen (woordstammen) in FILTER, bijv. "studie" i.p.v. "studiefinanciering"
-   - Combineer met OR (||) in je FILTER over meerdere velden
-   - Gebruik altijd STR() rond variabelen in FILTER: CONTAINS(LCASE(STR(?var)), "zoekterm")
-   - Voorbeeld pattern:
+5. De dataset bevat ALLEEN regelspecificaties van Nederlandse overheidsdiensten → andere onderwerpen → NO_DATA.
+
+ZOEK-REGELS:
+6. Zoek altijd breed met FILTER over MEERDERE velden:
+   - Op cpsv:Rule: dct:title, dct:description, dct:identifier
+   - Op cpsv:PublicService: dct:title, dct:description, dct:identifier, dcat:keyword
+   - Gebruik korte zoektermen (woordstammen), bijv. "leeftijd" i.p.v. "leeftijdsvoorwaarden"
+   - Gebruik STR() rond variabelen: CONTAINS(LCASE(STR(?var)), "zoekterm")
+   - Combineer met || in FILTER
+
+7. Voor specifieke vragen, zoek op REGEL-NIVEAU en haal context op:
+
+   Voorbeeld query — specifieke regel zoeken:
+   ```
+   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
+   PREFIX dct: <http://purl.org/dc/terms/>
+   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
+
+   SELECT ?rule ?id ?title ?description ?parentTitle ?serviceName WHERE {{
+     ?rule a cpsv:Rule ;
+           dct:identifier ?id ;
+           dct:title ?title ;
+           cpsv:implements ?service .
+     ?service dct:title ?serviceName .
+     OPTIONAL {{ ?rule dct:description ?description }}
+     OPTIONAL {{ ?rule cprmv:extends ?parent . ?parent dct:title ?parentTitle }}
      FILTER(
-       CONTAINS(LCASE(STR(?title)), "studie") ||
-       CONTAINS(LCASE(STR(?desc)), "studie") ||
-       CONTAINS(LCASE(STR(?id)), "studie") ||
-       CONTAINS(LCASE(STR(?keyword)), "studie")
+       CONTAINS(LCASE(STR(?title)), "basisbeurs") ||
+       CONTAINS(LCASE(STR(?description)), "basisbeurs")
      )
-7. Haal altijd relevante properties op (titel, beschrijving, organisatie, identifier, URI's).
-8. Gebruik OPTIONAL voor properties die niet altijd gevuld zijn.
-9. LIMIT resultaten tot 50.
+   }}
+   LIMIT 50
+   ```
+
+   Voorbeeld query — specifiekste regels (leaf nodes) voor een dienst:
+   ```
+   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
+   PREFIX dct: <http://purl.org/dc/terms/>
+   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
+
+   SELECT ?rule ?id ?title ?description WHERE {{
+     ?rule a cpsv:Rule ;
+           dct:identifier ?id ;
+           dct:title ?title ;
+           cpsv:implements ?service .
+     ?service dct:identifier "studiefinanciering" .
+     OPTIONAL {{ ?rule dct:description ?description }}
+     FILTER NOT EXISTS {{ ?child cprmv:extends ?rule }}
+   }}
+   LIMIT 50
+   ```
+
+   Voorbeeld query — hiërarchie van een regel opvragen:
+   ```
+   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
+   PREFIX dct: <http://purl.org/dc/terms/>
+   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
+
+   SELECT ?rule ?id ?title ?description ?parentId ?parentTitle WHERE {{
+     ?rule a cpsv:Rule ;
+           dct:identifier ?id ;
+           dct:title ?title ;
+           cpsv:implements ?service .
+     ?service dct:identifier "studiefinanciering" .
+     OPTIONAL {{ ?rule dct:description ?description }}
+     OPTIONAL {{
+       ?rule cprmv:extends ?parent .
+       ?parent dct:identifier ?parentId ;
+              dct:title ?parentTitle .
+     }}
+   }}
+   ORDER BY ?id
+   LIMIT 50
+   ```
+
+8. Haal altijd mee op: dct:identifier, dct:title, dct:description, en de parent-info via cprmv:extends.
+9. Gebruik OPTIONAL voor properties die niet altijd gevuld zijn (description, extends, etc.).
+10. LIMIT resultaten tot 50.
 """
 
 
@@ -397,14 +508,14 @@ if OIDC_ENABLED and authenticated:
     auth_html = (
         f'<div class="navbar-auth">'
         f'<span class="navbar-user">{html_escape(user["name"])}</span>'
-        f'<a class="navbar-btn" href="{logout_url}">Uitloggen</a>'
+        f'<a class="navbar-btn" href="{logout_url}" target="_self">Uitloggen</a>'
         f'</div>'
     )
 elif OIDC_ENABLED:
     login_url = html_escape(_get_login_url(), quote=True)
     auth_html = (
         f'<div class="navbar-auth">'
-        f'<a class="navbar-btn" href="{login_url}">Inloggen</a>'
+        f'<a class="navbar-btn" href="{login_url}" target="_self">Inloggen</a>'
         f'</div>'
     )
 else:
