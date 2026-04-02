@@ -200,38 +200,21 @@ PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
 De data is hiërarchisch opgebouwd:
   PublicService (dienst) → cpsv:Rule (regels) → cprmv:extends (sub-regels)
 
-Voorbeeld: studiefinanciering
-  Service: "studiefinanciering"
-    └─ Rule B01.01 "Besluit aanvraag" (top-level, samenvattend)
-        ├─ Rule B02.01 "Aanspraak" (sub-regel)
-        │   ├─ Rule B02.02 "Leeftijd" (specifiek, bevat beslistabel)
-        │   ├─ Rule B02.03 "Nationaliteitsvoorwaarden"
-        │   └─ Rule B02.04 "Correcte opleiding"
-        ├─ Rule B03.01 "Totaalbedrag"
-        │   ├─ Rule B03.02 "Basisbeurs" (bevat bedragen per situatie)
-        │   └─ Rule B03.03 "Aanvullende beurs"
-        │       └─ Rule B03.03.07 "Rekeninkomen van een ouder" (formule)
-        └─ Rule B04.01 "Maanden studiefinanciering"
-
-BELANGRIJK: Top-level regels (bijv. B01.01) zijn SAMENVATTEND — ze noemen alle sub-concepten
+BELANGRIJK: Top-level regels zijn SAMENVATTEND — ze noemen alle sub-concepten
 in hun beschrijving. De SPECIFIEKE regellogica (beslisbomen, formules, bedragen) zit in de
-DIEPERE sub-regels. Zoek dus altijd op regel-niveau, niet op service-niveau.
+DIEPERE sub-regels (leaf-regels). Zoek dus bij specifieke vragen op regel-niveau.
 
 === KLASSEN ===
 
 1. cpsv:PublicService — publieke diensten (13 stuks)
-   Properties:
-   - dct:title, dct:description, dct:identifier
-   - dcat:keyword — zoekwoorden
-   - m8g:hasCompetentAuthority → m8g:PublicOrganisation
-   - m8g:hasLegalResource → eli:LegalResource
-   - cprmv:hasDecisionModel → cprmv:DecisionModel
+   Properties: dct:title, dct:description, dct:identifier, dcat:keyword,
+   m8g:hasCompetentAuthority, m8g:hasLegalResource, cprmv:hasDecisionModel
 
 2. cpsv:Rule — regels die bij een dienst horen (~298 stuks, KERN VAN DE DATA)
    Properties:
-   - dct:title — titel van de regel (bijv. "Basisbeurs", "Leeftijd")
+   - dct:title — titel van de regel
    - dct:description — BEVAT DE WERKELIJKE REGELLOGICA: beslisbomen, formules, voorwaarden, bedragen
-   - dct:identifier — code (bijv. "B03.02", "B02.02")
+   - dct:identifier — code (bijv. "B03.02", "BASVO004.01")
    - cpsv:implements → PublicService URI (koppelt regel aan dienst)
    - cprmv:extends → cpsv:Rule URI (koppelt sub-regel aan parent-regel)
    - cprmv:confidenceLevel — "high" of "medium"
@@ -239,24 +222,18 @@ DIEPERE sub-regels. Zoek dus altijd op regel-niveau, niet op service-niveau.
 
    Sub-types:
    a) cprmv:TemporalRule — business rules met dct:description (beslislogica in tekst)
-   b) cprmv:DecisionRule — DMN decision table rijen, met:
-      - cprmv:decisionTable — tabel-ID
-      - cprmv:ruleType — "decision-rule"
-      - cprmv:rulesetType — "decision-table"
+   b) cprmv:DecisionRule — DMN decision table rijen (met cprmv:decisionTable, cprmv:ruleType)
 
 3. cprmv:Rule — regels afgeleid uit wettekst, met:
-   - cprmv:situatie — de situatiebeschrijving uit de wet
-   - cprmv:norm — de normwaarde (bijv. "2.200", "1.001,07")
+   - cprmv:situatie — situatiebeschrijving uit de wet
+   - cprmv:norm — normwaarde (bijv. "2.200", "1.001,07")
    - cprmv:definition — volledige wettekstpassage
-   - cprmv:implements → eli:LegalResource
 
 4. m8g:PublicOrganisation — overheidsorganisaties
-   - skos:prefLabel — naam (bijv. "Dienst Uitvoering Onderwijs")
+   - skos:prefLabel — naam
 
 5. cpsv:Input / cpsv:Output — invoer/uitvoer van DMN-modellen
-   - dct:identifier, dct:title, dct:type
-   - schema:value — standaardwaarde
-   - cpsv:isRequiredBy / cpsv:produces → DecisionModel URI
+   - dct:identifier, dct:title, dct:type, schema:value
 
 6. eli:LegalResource — wettelijke bronnen
 7. skos:Concept / skos:ConceptScheme — begrippen/vocabulaires
@@ -265,24 +242,107 @@ DIEPERE sub-regels. Zoek dus altijd op regel-niveau, niet op service-niveau.
 
 - cpsv:implements — regel → dienst (elke regel wijst naar zijn dienst)
 - cprmv:extends — sub-regel → parent-regel (hiërarchie)
-  Een regel ZONDER cprmv:extends is een top-level regel.
-  Een regel die NIET door andere regels ge-extend wordt is een leaf-regel (meest specifiek).
+  Regel ZONDER cprmv:extends = top-level regel (samenvattend)
+  Regel die NIET door anderen ge-extend wordt = leaf-regel (meest specifiek)
 
 === ORGANISATIES ===
-- Dienst Uitvoering Onderwijs — studiefinanciering
-- Rijksdienst voor Ondernemend Nederland — subsidies
-- Sociale Verzekeringsbank — AOW, kinderbijslag
-- Uitvoeringsinstituut Werknemersverzekeringen — WW, WIA
+- Dienst Uitvoering Onderwijs (DUO) — studiefinanciering
+- Onderwijs, Cultuur en Wetenschap (OCW) — basisbekostiging VO
+- Rijksdienst voor Ondernemend Nederland (RVO) — ISDE subsidie dakisolatie
+- Sociale Verzekeringsbank (SVB) — AOW
+- Uitvoeringsinstituut Werknemersverzekeringen (UWV) — WW, AOW
 - Directoraat-generaal Toeslagen — zorgtoeslag
-- Gemeente Heusden — heusdenpas, kindpakket
-- Provincie Flevoland — vergunningen
-- Onderwijs, Cultuur en Wetenschap — bekostiging scholen
-- Sociale Zaken en Werkgelegenheid — normenbrief
+- Gemeente Heusden — heusdenpas kindpakket
+- Provincie Flevoland — vergunningen, bomen, HR onboarding
+- Sociale Zaken en Werkgelegenheid (SZW) — normbedragen bijstand
 
-=== PUBLIEKE DIENSTEN (dct:identifier) ===
-studiefinanciering, zorgtoeslag-lvnsgb, ww-uitkering, aow-leeftijd, aow-leeftijd-uwv,
-isde-subsidie-dakisolatie, heusdenpaskindpakket, normbedragen, basisbekosting-vo,
-tree-felling, replacement-tree, rip-assignment, hr-onboarding
+=== ALLE PUBLIEKE DIENSTEN MET HUN REGELBOMEN ===
+
+1. studiefinanciering (DUO) — 27 regels
+   B01.01 Besluit aanvraag studiefinanciering (TOP)
+   ├─ B02.01 Persoon heeft aanspraak
+   │  ├─ B02.02 Leeftijd (beslisboom: 18-30, HO, ononderbroken)
+   │  │  └─ B02.02.02 Ononderbroken inschrijving
+   │  ├─ B02.03 Nationaliteitsvoorwaarden
+   │  │  └─ B02.03.02 EU voorwaarden
+   │  └─ B02.04 Correcte opleiding
+   ├─ B03.01 Totaalbedrag (A + B + C)
+   │  ├─ B03.02 Basisbeurs (beslisboom: uit/thuiswonend × MBO/HO → bedragen)
+   │  ├─ B03.03 Aanvullende beurs (Max(A-B, 0))
+   │  │  ├─ B03.03.01 Maximaal aanvullend
+   │  │  └─ B03.03.02 Maandelijkse inhouding
+   │  │     └─ B03.03.03 Totaalbedrag per kind
+   │  │        └─ B03.03.04 Rekeninkomen ouders
+   │  │           └─ B03.03.05 Jaarbedrag per ouder (A - B - C)
+   │  │              ├─ B03.03.06 Aftrekpost andere kinderen
+   │  │              └─ B03.03.07 Rekeninkomen van een ouder (C × (A - B))
+   │  │                 ├─ B03.03.08 Vrijgesteld bedrag van de ouder
+   │  │                 └─ B03.03.09 Percentage meetellend inkomen
+   │  └─ B03.04 Bedrag aan lening
+   B03.04.01 Persoon is uitwonend (los)
+   B03.05 Het maximale leenbedrag (los)
+   └─ B03.06 Maximale lening
+   B04.01 Persoon heeft nog tenminste één maand studiefinanciering
+   ├─ B04.02 Verbruikte jaren
+   │  └─ B04.04 Aantal jaar voor een inschrijving
+   └─ B04.05 Opnametermijn
+
+2. basisbekosting-vo (OCW) — 13 regels — basisbekostiging voortgezet onderwijs
+   BASVO001.01 Onderwijsinstelling komt in aanmerking voor Basisbekostiging VO 2025 (TOP)
+   └─ BASVO003.02 Eindbedrag basisbekostiging VO (A + B)
+      ├─ BASVO004.01 Bekostiging leerlingen (A + B)
+      │  ├─ BASVO004.02 Bekostiging leerlingen PRO en bovenbouw VBO bb/kb
+      │  │  └─ BASVO002.06 Bedrag leerlingen PRO/VBO 2025 (€ 11.185,30/leerling)
+      │  └─ BASVO004.03 Bekostiging leerlingen VWO/HAVO/MAVO/VBO excl bb/kb
+      │     └─ BASVO002.05 Bedrag leerlingen VWO/HAVO 2025 (€ 9.507,49/leerling)
+      └─ BASVO005.03 Vast bedrag van toepassing op vestiging (beslisboom)
+         ├─ BASVO002.03 Vast bedrag hoofdvestiging 2025 (€ 275.595,52)
+         ├─ BASVO002.04 Vast bedrag nevenvestiging 2025 (€ 137.797,76)
+         └─ BASVO005.04 Vestiging voldoet aan minimumeis leerlingen (beslisboom)
+            ├─ BASVO005.09 Minimum leerlingen niet-PRO (≥ 130)
+            └─ BASVO005.10 Minimum leerlingen uitsluitend PRO (≥ 60)
+
+3. isde-subsidie-dakisolatie (RVO) — 13 regels — ISDE subsidie voor dakisolatie
+   ISDE001.01 Aanvraag dakisolatie komt in aanmerking (TOP)
+   └─ ISDE002.01 Bereken ISDE-subsidie dakisolatie
+      ├─ ISDE003.01 Berekening R-waardewinst (ΔR)
+      ├─ ISDE003.02 Berekening extra isolatiedikte (mm)
+      ├─ ISDE003.03 Berekening materiaalkosten (€)
+      ├─ ISDE003.04 Berekening installatiekosten (€)
+      ├─ ISDE003.05 Berekening totale kosten (€)
+      ├─ ISDE003.06 Berekening netto kosten na subsidie (€)
+      ├─ ISDE003.07 Berekening terugverdientijd (jaar)
+      ├─ ISDE004.01 Subsidiescenario R=3,0
+      ├─ ISDE004.02 Subsidiescenario R=4,0
+      ├─ ISDE004.03 Subsidiescenario R=6,0 (aanbevolen)
+      └─ ISDE004.04 Subsidiescenario R=8,0
+
+4. zorgtoeslag-lvnsgb (Toeslagen) — 12 regels — GEEN hiërarchie (alle top-level)
+   Regelgroep 001: Hoogte toeslag bij ontbrekende draagkracht
+   Regelgroep 002: Hoogte toeslag (alleenstaand)
+   Regelgroep 003: Inkomen boven drempel
+   Regelgroep 004: Standaardpremie
+   Regelgroep 005: Woonlandfactor
+   Regelgroep 006: Datum berekening
+   Regelgroep 007: Leeftijd
+   Regelgroep 008: In leven
+   Regelgroep 010: Recht op zorgtoeslag
+   Regelgroep 011: Recht op zorgtoeslag verzekerde zonder partner
+   Regelgroep 012: Rechtgevende leeftijd
+   Regelgroep 013: Motivaties recht op zorgtoeslag
+
+5. hr-onboarding (Flevoland) — 11 regels — GEEN hiërarchie (alle top-level)
+   Rule_01–Rule_11: Rol-toewijzingsregels per functie
+   (caseworker, senior-behandelaar, RIP-verkenner, planner, inkoop, etc.)
+
+6. tree-felling (Flevoland) — 1 regel: Tree diameter
+7. replacement-tree (Flevoland) — 1 regel: Replacement tree diameter
+8. rip-assignment (Flevoland) — via DMN DecisionRules
+9. aow-leeftijd (SVB) — via DMN inputs/outputs
+10. aow-leeftijd-uwv (UWV) — via DMN inputs/outputs
+11. ww-uitkering (UWV) — via DMN DecisionRules
+12. heusdenpaskindpakket (Gemeente Heusden) — via DMN DecisionRules
+13. normbedragen (SZW) — bijstandsnormen, via DMN DecisionRules + cprmv:Rule (wettekst)
 """
 
 NL2SPARQL_SYSTEM = f"""Je bent een SPARQL-query generator voor de CODW-dataset (Nederlandse overheidsregelspecificaties).
@@ -293,100 +353,92 @@ Je taak: genereer een SPARQL SELECT query die de juiste data ophaalt voor de geb
 
 === QUERY STRATEGIE ===
 
-STAP 1: Bepaal of de vraag gaat over een DIENST (overzicht) of een SPECIFIEKE REGEL (detail).
-- "Welke diensten zijn er?" → query op cpsv:PublicService
-- "Wat zijn de regels voor studiefinanciering?" → query op cpsv:Rule met cpsv:implements filter
-- "Hoe wordt het rekeninkomen berekend?" → query op cpsv:Rule, zoek in dct:description
-- "Wat is de basisbeurs voor uitwonende HBO studenten?" → query op specifieke cpsv:Rule
+STAP 1: Bepaal het juiste query-niveau.
+- Overzichtsvraag ("welke diensten?") → query op cpsv:PublicService
+- Regelvraag ("welke regels voor X?") → query op cpsv:Rule met cpsv:implements filter
+- Specifieke vraag ("hoe wordt Y berekend?") → zoek in dct:description van cpsv:Rule
 
-STAP 2: Zoek op het JUISTE NIVEAU.
-- Voor specifieke vragen: zoek in dct:description en dct:title van cpsv:Rule
-- Prefereer leaf-regels (regels die NIET door anderen ge-extend worden) boven top-level regels
-- Haal ook de parent-keten op via cprmv:extends voor context
+STAP 2: Bepaal de juiste dienst. Gebruik de regelbomen hierboven om de vraag te mappen:
+- "bekostiging", "VO", "leerlingen", "vestiging" → basisbekosting-vo (OCW)
+- "studie", "beurs", "lening", "studiefinanciering" → studiefinanciering (DUO)
+- "isolatie", "dak", "R-waarde", "ISDE" → isde-subsidie-dakisolatie (RVO)
+- "zorgtoeslag", "standaardpremie", "draagkracht" → zorgtoeslag-lvnsgb
+- "AOW", "pensioen" → aow-leeftijd / aow-leeftijd-uwv
+- "WW", "werkloosheid" → ww-uitkering
+- "bijstand", "normbedrag" → normbedragen (SZW)
+- "boom", "kappen", "kapvergunning" → tree-felling / replacement-tree
+- "onboarding", "functie", "rol" → hr-onboarding
+- "heusdenpas", "kindpakket" → heusdenpaskindpakket
+
+STAP 3: Zoek op het juiste NIVEAU in de hiërarchie.
+- Top-level regels zijn SAMENVATTEND
+- Leaf-regels (zonder kinderen) bevatten de SPECIFIEKE LOGICA
+- Voor specifieke vragen: gebruik FILTER NOT EXISTS {{ ?child cprmv:extends ?rule }}
 
 REGELS:
 1. Genereer ALLEEN een SPARQL query, geen uitleg.
 2. Wrap de query in ```sparql ... ``` codeblok.
 3. Gebruik altijd de juiste prefixes.
-4. Als de vraag NIET beantwoord kan worden met deze dataset, antwoord dan EXACT met: NO_DATA
-5. De dataset bevat ALLEEN regelspecificaties van Nederlandse overheidsdiensten → andere onderwerpen → NO_DATA.
+4. Vraag NIET beantwoordbaar → antwoord EXACT met: NO_DATA
+5. Dataset bevat ALLEEN regelspecificaties Nederlandse overheidsdiensten → andere onderwerpen → NO_DATA.
 
 ZOEK-REGELS:
 6. Zoek altijd breed met FILTER over MEERDERE velden:
-   - Op cpsv:Rule: dct:title, dct:description, dct:identifier
-   - Op cpsv:PublicService: dct:title, dct:description, dct:identifier, dcat:keyword
-   - Gebruik korte zoektermen (woordstammen), bijv. "leeftijd" i.p.v. "leeftijdsvoorwaarden"
-   - Gebruik STR() rond variabelen: CONTAINS(LCASE(STR(?var)), "zoekterm")
-   - Combineer met || in FILTER
+   FILTER(
+     CONTAINS(LCASE(STR(?title)), "zoekterm") ||
+     CONTAINS(LCASE(STR(?description)), "zoekterm") ||
+     CONTAINS(LCASE(STR(?id)), "zoekterm")
+   )
+   Gebruik korte woordstammen als zoekterm (bijv. "bekostig" i.p.v. "basisbekostiging").
 
-7. Voor specifieke vragen, zoek op REGEL-NIVEAU en haal context op:
+7. Haal altijd op: dct:identifier, dct:title, dct:description, en parent-info via cprmv:extends.
+8. Gebruik OPTIONAL voor optionele properties (description, extends, etc.).
+9. LIMIT resultaten tot 50.
 
-   Voorbeeld query — specifieke regel zoeken:
-   ```
-   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
-   PREFIX dct: <http://purl.org/dc/terms/>
-   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
+VOORBEELD — specifieke leaf-regels zoeken:
+```sparql
+PREFIX cpsv: <http://purl.org/vocab/cpsv#>
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
 
-   SELECT ?rule ?id ?title ?description ?parentTitle ?serviceName WHERE {{
-     ?rule a cpsv:Rule ;
-           dct:identifier ?id ;
-           dct:title ?title ;
-           cpsv:implements ?service .
-     ?service dct:title ?serviceName .
-     OPTIONAL {{ ?rule dct:description ?description }}
-     OPTIONAL {{ ?rule cprmv:extends ?parent . ?parent dct:title ?parentTitle }}
-     FILTER(
-       CONTAINS(LCASE(STR(?title)), "basisbeurs") ||
-       CONTAINS(LCASE(STR(?description)), "basisbeurs")
-     )
-   }}
-   LIMIT 50
-   ```
+SELECT ?rule ?id ?title ?description ?parentTitle ?serviceName WHERE {{
+  ?rule a cpsv:Rule ;
+        dct:identifier ?id ;
+        dct:title ?title ;
+        cpsv:implements ?service .
+  ?service dct:title ?serviceName .
+  OPTIONAL {{ ?rule dct:description ?description }}
+  OPTIONAL {{ ?rule cprmv:extends ?parent . ?parent dct:title ?parentTitle }}
+  FILTER(
+    CONTAINS(LCASE(STR(?title)), "bekostig") ||
+    CONTAINS(LCASE(STR(?description)), "bekostig")
+  )
+}}
+LIMIT 50
+```
 
-   Voorbeeld query — specifiekste regels (leaf nodes) voor een dienst:
-   ```
-   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
-   PREFIX dct: <http://purl.org/dc/terms/>
-   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
+VOORBEELD — alle regels van een specifieke dienst:
+```sparql
+PREFIX cpsv: <http://purl.org/vocab/cpsv#>
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
 
-   SELECT ?rule ?id ?title ?description WHERE {{
-     ?rule a cpsv:Rule ;
-           dct:identifier ?id ;
-           dct:title ?title ;
-           cpsv:implements ?service .
-     ?service dct:identifier "studiefinanciering" .
-     OPTIONAL {{ ?rule dct:description ?description }}
-     FILTER NOT EXISTS {{ ?child cprmv:extends ?rule }}
-   }}
-   LIMIT 50
-   ```
-
-   Voorbeeld query — hiërarchie van een regel opvragen:
-   ```
-   PREFIX cpsv: <http://purl.org/vocab/cpsv#>
-   PREFIX dct: <http://purl.org/dc/terms/>
-   PREFIX cprmv: <https://cprmv.open-regels.nl/0.3.0/>
-
-   SELECT ?rule ?id ?title ?description ?parentId ?parentTitle WHERE {{
-     ?rule a cpsv:Rule ;
-           dct:identifier ?id ;
-           dct:title ?title ;
-           cpsv:implements ?service .
-     ?service dct:identifier "studiefinanciering" .
-     OPTIONAL {{ ?rule dct:description ?description }}
-     OPTIONAL {{
-       ?rule cprmv:extends ?parent .
-       ?parent dct:identifier ?parentId ;
-              dct:title ?parentTitle .
-     }}
-   }}
-   ORDER BY ?id
-   LIMIT 50
-   ```
-
-8. Haal altijd mee op: dct:identifier, dct:title, dct:description, en de parent-info via cprmv:extends.
-9. Gebruik OPTIONAL voor properties die niet altijd gevuld zijn (description, extends, etc.).
-10. LIMIT resultaten tot 50.
+SELECT ?rule ?id ?title ?description ?parentId ?parentTitle WHERE {{
+  ?rule a cpsv:Rule ;
+        dct:identifier ?id ;
+        dct:title ?title ;
+        cpsv:implements ?service .
+  ?service dct:identifier "basisbekosting-vo" .
+  OPTIONAL {{ ?rule dct:description ?description }}
+  OPTIONAL {{
+    ?rule cprmv:extends ?parent .
+    ?parent dct:identifier ?parentId ;
+           dct:title ?parentTitle .
+  }}
+}}
+ORDER BY ?id
+LIMIT 50
+```
 """
 
 
